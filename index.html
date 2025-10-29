@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Munkaidő Kalkulátor – dev by verebtamas</title>
+<!--developed by verebtamas-->
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0d1117;
+    --card-bg: #161b22;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --accent-hover: #1f6feb;
+    --border: #30363d;
+    --hacker-green: #00ffaa;
+  }
+
+  body {
+    font-family: "Inter", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  /* CRT monitor effekt */
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(0,255,100,0.05) 0px,
+      rgba(0,255,100,0.05) 1px,
+      transparent 2px,
+      transparent 3px
+    );
+    pointer-events: none;
+    mix-blend-mode: overlay;
+    animation: flicker 1.8s infinite;
+    z-index: 0;
+  }
+
+  @keyframes flicker {
+    0%, 18%, 22%, 25%, 53%, 57%, 100% { opacity: 0.1; }
+    20%, 24%, 55% { opacity: 0.2; }
+  }
+
+  #snow-canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    padding-top: 60px;
+  }
+
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 0 30px rgba(0,0,0,0.5);
+    padding: 32px;
+    width: 90%;
+    max-width: 1024px;
+    backdrop-filter: blur(10px);
+  }
+
+  h1 {
+    text-align: center;
+    color: var(--text);
+    font-size: 26px;
+    margin-bottom: 8px;
+  }
+
+  /* === HACKER ANIMÁCIÓ === */
+  .hacker-text {
+    text-align: center;
+    font-family: "Source Code Pro", monospace;
+    font-size: 16px;
+    color: #00ff66;
+    white-space: nowrap;
+    overflow: hidden;
+    border-right: 3px solid #00ffcc;
+    width: fit-content;
+    margin: 0 auto 28px;
+    animation: blink 0.6s step-end infinite;
+    min-height: 1.2em;
+  }
+
+  .hacker-name {
+    color: #00ff99;
+    text-shadow: 0 0 15px #00ff99, 0 0 40px #00ff99, 0 0 80px #00ff99;
+    font-weight: bold;
+  }
+
+  @keyframes blink {
+    0%, 50% { border-color: #00ffcc; }
+    50.1%, 100% { border-color: transparent; }
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 56px;
+    margin-bottom: 36px;
+  }
+
+  label {
+    font-weight: 600;
+    font-size: 13px;
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  input, select {
+    width: 100%;
+    padding: 10px 20px;
+    background: #162741;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 14px;
+  }
+
+  input:focus, select:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+  }
+
+  button:hover {
+    background: var(--accent-hover);
+    transform: scale(1.03);
+  }
+
+  button.secondary {
+    background: #30363d;
+    color: var(--text);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+    font-size: 14px;
+  }
+
+  th, td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    color: var(--muted);
+    font-weight: 600;
+    background: rgba(255,255,255,0.02);
+  }
+
+  tr:hover td {
+    background: rgba(255,255,255,0.05);
+  }
+
+  .footer {
+    text-align: right;
+    margin-top: 20px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+<canvas id="snow-canvas"></canvas>
+
+<div class="container">
+  <div class="card">
+    <h1>Munkaidő Kalkulátor</h1>
+    <p class="hacker-text" id="signature"></p>
+
+    <div class="form-grid">
+      <div>
+        <label>Érkezés</label>
+        <input id="arrival" type="time" value="07:00" step="60">
+      </div>
+      <div>
+        <label>Munkaidő (óra)</label>
+        <input id="workHours" type="number" value="8" step="1" min="0">
+      </div>
+      <div>
+        <label>Nem fizetett szünet (perc)</label>
+        <input id="unpaidBreak" type="number" value="20" min="0">
+      </div>
+      <div>
+        <label>Nem fizetett szünet alkalmazva?</label>
+        <select id="unpaidApplied">
+          <option value="true" selected>Igen</option>
+          <option value="false">Nem</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="addBtn">Hozzáadás</button>
+      <button id="clearBtn" class="secondary">Napló törlése</button>
+      <button id="exportBtn" class="secondary">Exportálás CSV-be</button>
+    </div>
+
+    <table id="logTable">
+      <thead>
+        <tr>
+          <th>Dátum</th>
+          <th>Érkezés</th>
+          <th>Távozás</th>
+          <th>Munkaidő</th>
+          <th>Nem fizetett szünet</th>
+          <th>Alkalmazva?</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <div class="footer">© 2025 verebtamas</div>
+  </div>
+</div>
+
+<script>
+// --- Animált TITLE (gépelős effekt) ---
+const titleText = "💻 Munkaidő Kalkulátor";
+let titleIndex = 0;
+let titleForward = true;
+
+function animateTitle() {
+  document.title = titleText.slice(0, titleIndex);
+  if (titleForward) {
+    titleIndex++;
+    if (titleIndex > titleText.length) {
+      titleForward = false;
+      setTimeout(animateTitle, 1500);
+      return;
+    }
+  } else {
+    titleIndex--;
+    if (titleIndex === 0) {
+      titleForward = true;
+      setTimeout(animateTitle, 500);
+      return;
+    }
+  }
+  setTimeout(animateTitle, titleForward ? 100 : 60);
+}
+animateTitle();
+
+// --- Hacker szöveg animáció ---
+let i = 0;
+let forward = true;
+const text = "dev by · <span class='hacker-name'>verebtamas</span>";
+const target = document.getElementById("signature");
+
+function typeEffect() {
+  target.innerHTML = text.slice(0, i) || "&nbsp;";
+  if (forward) {
+    i++;
+    if (i > text.length) {
+      forward = false;
+      setTimeout(typeEffect, 1500);
+      return;
+    }
+  } else {
+    i--;
+    if (i === 0) {
+      forward = true;
+      setTimeout(typeEffect, 400);
+      return;
+    }
+  }
+  setTimeout(typeEffect, forward ? 60 : 40);
+}
+window.addEventListener("load", typeEffect);
+
+// --- Munkaidő funkció ---
+(function(){
+  const arrivalEl = document.getElementById('arrival');
+  const workHoursEl = document.getElementById('workHours');
+  const unpaidBreakEl = document.getElementById('unpaidBreak');
+  const unpaidAppliedEl = document.getElementById('unpaidApplied');
+  const addBtn = document.getElementById('addBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const exportBtn = document.getElementById('exportBtn');
+  const tableBody = document.querySelector('#logTable tbody');
+
+  function parseTimeToDate(timeStr) {
+    const [hh, mm] = timeStr.split(':').map(Number);
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, mm);
+  }
+
+  function addMinutes(date, mins) {
+    return new Date(date.getTime() + mins * 60000);
+  }
+
+  function fmt(d) {
+    return d.toLocaleTimeString('hu-HU', {hour: '2-digit', minute: '2-digit', hour12: false});
+  }
+
+  function fmtDate(d) {
+    return d.toLocaleDateString('hu-HU', {year: 'numeric', month: '2-digit', day: '2-digit'});
+  }
+
+  function getData() {
+    return JSON.parse(localStorage.getItem('munkaido_log_snow') || '[]');
+  }
+
+  function saveData(data) {
+    localStorage.setItem('munkaido_log_snow', JSON.stringify(data));
+  }
+
+  function renderTable() {
+    const data = getData();
+    tableBody.innerHTML = '';
+    data.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.date}</td>
+        <td>${r.arrival}</td>
+        <td>${r.departure}</td>
+        <td>${r.workHours} óra</td>
+        <td>${r.unpaidBreak} perc</td>
+        <td>${r.unpaidApplied ? 'Igen' : 'Nem'}</td>
+      `;
+      tableBody.appendChild(tr);
+    });
+  }
+
+  addBtn.addEventListener('click', () => {
+    const arrival = arrivalEl.value;
+    if (!arrival) return alert('Add meg az érkezési időt!');
+    const workHours = parseFloat(workHoursEl.value) || 0;
+    const unpaidBreak = parseInt(unpaidBreakEl.value) || 0;
+    const unpaidApplied = unpaidAppliedEl.value === 'true';
+    const start = parseTimeToDate(arrival);
+    let end = addMinutes(start, workHours * 60);
+    if (unpaidApplied) end = addMinutes(end, unpaidBreak);
+
+    const newEntry = {
+      date: fmtDate(start),
+      arrival: fmt(start),
+      departure: fmt(end),
+      workHours,
+      unpaidBreak,
+      unpaidApplied
+    };
+
+    const data = getData();
+    data.push(newEntry);
+    saveData(data);
+    renderTable();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    if (confirm('Biztosan törlöd a teljes naplót?')) {
+      localStorage.removeItem('munkaido_log_snow');
+      renderTable();
+    }
+  });
+
+exportBtn.addEventListener('click', () => {
+  const data = getData();
+  if (!data.length) return alert('Nincs exportálható adat.');
+  const header = ['Dátum','Érkezés','Távozás','Munkaidő (óra)','Nem fizetett szünet (perc)','Alkalmazva?'];
+  const csv = [header.join(';')]
+    .concat(data.map(r => [r.date,r.arrival,r.departure,r.workHours,r.unpaidBreak,r.unpaidApplied?'Igen':'Nem'].join(';')))
+    .join('\n');
+
+  // 🔧 BOM hozzáadása UTF-8 felismeréshez
+  const BOM = "\uFEFF";
+  const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'munkaido.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+  renderTable();
+})();
+
+// --- Hóesés animáció ---
+const canvas = document.getElementById('snow-canvas');
+const ctx = canvas.getContext('2d');
+let snowflakes = [];
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function createSnowflake() {
+  const size = Math.random() * 3 + 1;
+  return {
+    x: Math.random() * canvas.width,
+    y: -10,
+    r: size,
+    d: Math.random() + 1,
+    speed: Math.random() * 1 + 0.5
+  };
+}
+
+function drawSnowflakes() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = 'rgba(255,255,255,0.8)';
+  ctx.beginPath();
+  snowflakes.forEach(f => {
+    ctx.moveTo(f.x, f.y);
+    ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+  });
+  ctx.fill();
+  updateSnowflakes();
+}
+
+function updateSnowflakes() {
+  snowflakes.forEach(f => {
+    f.y += f.speed;
+    f.x += Math.sin(f.d);
+    if (f.y > canvas.height) {
+      f.x = Math.random() * canvas.width;
+      f.y = -10;
+    }
+  });
+}
+
+function loop() {
+  if (snowflakes.length < 150) snowflakes.push(createSnowflake());
+  drawSnowflakes();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
